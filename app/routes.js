@@ -7,6 +7,7 @@ var users            = require('./controllers/users');
 var comments         = require('./controllers/comments'); 
 var notifications    = require('./controllers/notifications'); 
 var accountRecovery  = require('./controllers/password-recovery'); 
+var galleryController = require('../public/js/gallery-controller.js');
 
 module.exports = function(app, passport) {
 
@@ -72,6 +73,9 @@ module.exports = function(app, passport) {
     });
     
     app.post(   '/upload-datascape',        users.createDataset);
+    app.get('/datascape/:bullet/csv', files.datascapeGetCSV);
+    app.get('/datascape/:bullet/config', files.datascapeGetLegacyConfig);
+
 
     app.get(    '/notifications',           users.getNotifications);
     app.get(    '/notifications/:notificationID', notifications.redirect );
@@ -114,9 +118,9 @@ module.exports = function(app, passport) {
     app.put(    '/api/*',  function(req, res){ res.status(404).send('Route not found') });
     app.delete( '/api/*',  function(req, res){ res.status(404).send('Route not found') });
     
-    app.get( '/gallery*', function(req, res){
-	res.render('gallery.ejs', {user: req.user});
-    });    
+    app.get('/gallery', function(req, res) {
+        galleryController.initGallery(req, res);
+    });     
     
     app.get( '/about', function(req, res){
 	res.render('about.ejs', { user: req.user });
@@ -132,7 +136,7 @@ module.exports = function(app, passport) {
     });
     
     // Must be last in list of route declarations
-    app.get('/:bullet',        files.displayDatascape);
+    app.get('/datascape/:bullet',        files.displayDatascape);
     app.get('/:bullet/config', files.datascapeGetLegacyConfig);
     app.get('/:bullet/csv',    files.datascapeGetCSV);
     

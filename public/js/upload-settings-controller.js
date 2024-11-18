@@ -1,3 +1,33 @@
+jQuery.noConflict();
+document.getElementById('dataset-upload-form').addEventListener('submit', function(event) {
+    event.preventDefault(); // Prevent default form submission
+    var formData = new FormData(this);
+	
+
+    fetch(this.action, {
+        method: 'POST',
+        body: formData
+    })
+    .then(function(response) {
+        return response.json();
+    })
+    .then(function(data) {
+        if (data.success) {
+            // Check if bullet is present in the response
+            if (data && data.bullet) {
+                // Redirect to the datascape page using the bullet as an identifier
+                window.location.replace('/datascape/' + data.bullet);
+            } else {
+                console.log("An error occurred: Bullet ID is missing in the response.");
+            }
+        } else {
+            console.log(data.message || "Failed to upload datascape.");
+        }
+    })
+    .catch(function(error) {
+        console.error("Error:", error);
+    });
+});
 
 
 // Call this somethings that is triggered when upload page is loaded
@@ -173,83 +203,119 @@ $(document).ready(function(){
     }
 
 	
-    
-    function genTable(data, settings){
-	var tableConfig = {
-	    id: "data-display-table",
-	    class: "pure-table pure-table-horizontal"
+	function genTable(data, settings) {
+		var tableConfig = {
+			id: "data-display-table",
+			class: "pure-table pure-table-horizontal"
+		};
+	
+		var tableContainer = $("#table-display-container");
+	
+		var theadConfig = {};
+		var tbodyConfig = {};
+		
+		var table = $("<table>", tableConfig);
+		var thead = $("<thead>", theadConfig);
+		var tbody = $("<tbody>", tbodyConfig);
+	
+		// Construct table header
+		var trHead = $("<tr>");
+		data[0].forEach(function(datum) {
+			trHead.append($("<th>", { html: datum }));
+		});
+		thead.append(trHead);
+	
+		// Prepare settings for existing column types, if provided
+		settings = settings || {};
+		settings.columnTypes = settings.columnTypes || [];
+	
+		// Display a preview of the first 3 rows
+		for (var i = 1; i < 4; i++) {
+			var tr = $("<tr>");
+			data[i].forEach(function(datum) {
+				tr.append($("<td>", { html: datum }));
+			});
+			tbody.append(tr);
+		}
+	
+		// Row for column selection using dropdowns
+		var trEvalAs = $("<tr>", { class: 'eval-as' });
+	
+		data[0].forEach(function(datum, index) {
+			var sID = 'eval-column-' + index + '-as';
+			
+			// Create dropdown as a select element
+			var select = $("<select>", { name: "column-eval-type[]", id: sID, class: "column-dropdown" });
+	
+			// Check if the column is numeric
+			var isColumnNumeric = isNumericColumn(data, index);
+	
+			// Dropdown options
+			select.append($("<option>", { value: 'id', html: 'ID', disabled: !isColumnNumeric }));
+			select.append($("<option>", { value: 'axis', html: 'Axis', disabled: !isColumnNumeric }));
+			select.append($("<option>", { value: 'meta', html: 'Meta' }));
+			select.append($("<option>", { value: 'omit', html: 'Omit' }));
+	
+			// Set initial value from settings if available
+			if (settings.columnTypes[index]) {
+				select.val(settings.columnTypes[index]);
+			} else {
+				select.val("omit"); // Default selection to 'omit' if not specified
+			}
+	
+			// Initialize the column type selection array
+			columnTypes[index] = select.val();
+	
+			// Change event listener to update and log the selected value
+			select.change(function() {
+				columnTypes[index] = this.value;
+				console.log("Updated column types:", columnTypes);
+			});
+	
+			// Append the dropdown to the row
+			trEvalAs.append($("<td>").append(select));
+		});
+	
+		tbody.append(trEvalAs);
+		table.append(thead);
+		table.append(tbody);
+	
+		// Clear any previous table and display the new one
+		tableContainer.empty();
+		tableContainer.append(table);
+	
+		// Log the initial column types
+		console.log("Initial column types:", columnTypes);
 	}
 	
-	var tableContainer = $("#table-display-container");
-	
-	var theadConfig  = {}
-	var tbodyConfig  = {}
-	var selectConfig = {}
-	
-	var table = $("<table\>", tableConfig);
-	var thead = $("<thead\>", theadConfig);
-	var tbody = $("<tbody\>", tbodyConfig);
-	
-	// Construct table head
-	var trHead = $("<tr\>", {/* No config */})
-	data[0].forEach(function(datum){ trHead.append( $("<th\>", {html: datum} ) ); })
-	thead.append( trHead );
-	
-	
-	settings = settings ? settings : {};
-	settings.columnTypes = settings.columnTypes ? settings.columnTypes : [];
-
-	// Only display fist 3
-	for( var i = 1; i < 4 ; i++ ){
-	    var tr = $("<tr\>", {/* No config */})
-	    data[ i ].forEach(function(datum){ tr.append( $("<td\>", {html: datum} ) ); })
-	    tbody.append( tr );
+	// Helper function to determine if a column is numeric
+	function isNumericColumn(data, columnIndex) {
+		// Check the first few rows to see if they are numeric
+		for (var i = 1; i < Math.min(4, data.length); i++) { // Checking the first three rows
+			var value = data[i][columnIndex];
+			if (value === undefined || isNaN(parseFloat(value))) {
+				return false;
+			}
+		}
+		return true;
 	}
 	
-	// Build eval-as input field
-	var trEvalAs = $("<tr\>", {class: 'eval-as'});
-	
-	data[0].forEach(function(datum, index){
-	    var sID = 'eval-column-'+ index +'-as';
-	    var select = $("<select\>", {name: "column-eval-type[]", id: sID, size: 4} );
-	    
-	    // Invert the is*() results because `disabled` will disable elements if `true`
-	    // so if something IS true DON'T disable it
-	    
-	    //console.log( isAxis(data, index) );
-	    select.append( $("<option\>", {value: 'id',    html: 'ID',   disabled: !isId(data, index) }) );
-	    
-	    select.append( $("<option\>", {value: 'axis',  html: 'Axis', disabled: !isAxis(data, index) }) );
-	    
-	    select.append( $("<option\>", {value: 'meta',  html: 'Meta' }) );
-	    
-	    select.append( $("<option\>", {value: 'omit',  html: 'Omit' }) );
-	    	    
-	    // Init 
-	    // Reselect values if loading settings, 
-	    if( settings.columnTypes[index] )
-		select.val( settings.columnTypes[index] );
-	    
-	    // Creates a change method for each method built
-	    select.change( function(value){
-		columnTypes[ index ] = this.value;
-	    });
-	    
-	    trEvalAs.append( $("<td\>", {html: select} ) );
-	}); 
 
 	
-	trEvalAs.find('select').each(function(index){
-	    columnTypes[ index ] = $(this).val();
-	});
+	// Helper function to determine if a column is numeric
+	function isNumericColumn(data, columnIndex) {
+		// Check the first few rows to see if they are numeric
+		for (var i = 1; i < Math.min(4, data.length); i++) { // Checking the first three rows
+			var value = data[i][columnIndex];
+			if (value === undefined || isNaN(parseFloat(value))) {
+				return false;
+			}
+		}
+		return true;
+	}
 	
-	tbody.append( trEvalAs ); 	
-	table.append( thead );
-	table.append( tbody );
-
-	tableContainer.empty();
-	tableContainer.append( table );
-    }
+	
+	
     
     // @fileContainer and @CSV are overrides form the default data
     function populateForm(table, file, fileContainer, CSV){
@@ -272,8 +338,10 @@ $(document).ready(function(){
 	// Use users default visibility 
         setSharingArea( user.fileSettings.defaults.visibility );
     }
-    
+
+
     $.validator.prototype.checkForm = function () {
+		
         //overriden in a specific page
         this.prepareForm();
         for (var i = 0, elements = (this.currentElements = this.elements()); elements[i]; i++) {
@@ -330,8 +398,12 @@ $(document).ready(function(){
 	    	cache: false,
 	    	contentType: false,
 	    	processData: false,
-	    }).success( function(data, textStatus){
-                window.location.replace( data );
+	    }).done(function(response, textStatus) {
+	        if (response && response.bullet) {
+	            window.location.replace('/datascape/' + response.bullet);
+	        } else {
+	            console.error("Bullet ID missing in response:", response);
+	        }
 	    });
 	}
     });
@@ -376,7 +448,7 @@ $(document).ready(function(){
 			cache: false,
 			data: data,
 			error: seriesCB
-		    }).success(function(data){
+		    }).done(function(data){
 			
 			// Let the CB do its things
 			seriesCB(null, data); 			
@@ -400,7 +472,7 @@ $(document).ready(function(){
 			cache: false,
 			data: data,
 			error: seriesCB
-		    }).success(function(data){
+		    }).done(function(data){
 			// populate form data
 			seriesCB(null, data);
 		    });
